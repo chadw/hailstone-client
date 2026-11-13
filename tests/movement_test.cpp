@@ -208,6 +208,10 @@ TEST_CASE("Levitation mode, air supply, breathing") {
     CHECK(levitation_mode(FlyMode::Ground, true, false, FlyMode::Flying, false) == FlyMode::Flying);
     CHECK(levitation_mode(FlyMode::Ground, true, false, std::nullopt, true) == FlyMode::Ground);
     CHECK(levitation_mode(FlyMode::Ground, true, false, std::nullopt, true, true) == FlyMode::Levitate);
+    constexpr std::array<FlyMode, 6> server_modes{FlyMode::Ground, FlyMode::Flying, FlyMode::Levitate,
+                                                 FlyMode::Water, FlyMode::Floating, FlyMode::LevitateRun};
+    for (FlyMode mode : server_modes)
+        CHECK(levitation_mode(FlyMode::Ground, true, false, std::nullopt, true, false, mode) == mode);
 
     CHECK(max_air_supply(100, 0, 1) == 70);   // (100 - 30) * 100 / 100
     CHECK(max_air_supply(200, 0, 1) == 100);  // at most the percent

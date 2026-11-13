@@ -186,7 +186,7 @@ AGI 0, plain item weights). Each value, with what produces it:
 | weight factor | `calculate_weight`: current weight = carried weight (`item_weight`: each item's own weight, charm-scaled, without its augments or its stack count; the bag reduction, SPA 221), capacity = STR with items and buffs, current / max HP with the spawn type, and `slowdown_any_level` (the level threshold 0 instead of 3); bazaar and barter zones from the zone table |
 | fall damage | current weight, adjusted skill 39, the profile's Safe Fall skill, `TotalEffect(228)`, the heroic AGI bonus; the no-fall-damage flag is the zone's (OP_NewZone +894) |
 | air supply and region damage | max air supply with STA with buffs and `TotalEffect(246)`; water breathing `TotalEffect(14)`; the fire / cold (disease in zone 200) resists from process_all_stats |
-| levitation | the levitation state update on `cached_buff(57, 0 / 1)` |
+| fly mode | a non-ground mode from the spawn record is authoritative; any local `SpawnAppearance` type 19 is authoritative, including Ground (0), distinct from the spawn record's default; otherwise levitation is derived from `cached_buff(57, 0 / 1)` |
 | sneaking | the Sneak flag, set by the server's OP_SpawnAppearance type 15 and cleared by OP_CancelSneakHide or a cast's make-me-visible; the control processing then uses `sneak_speed(class, level)` x 0.46 forward and halves the walk back speed (`controls.cpp`) |
 
 Tests: `tests/movement_inputs_test.cpp` builds synthetic characters (buffs, worn items, augments, bags, heroic gear)

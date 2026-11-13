@@ -188,9 +188,11 @@ std::int32_t calc_carried_weight(std::span<const CarriedItem> items, std::int32_
 // buffs: SPA 57 in the buff cache (value 0) levitates (2), else its second
 // value (5); mode 1 (flying mount) is kept; a rider follows its mount; a
 // no-levitation zone (flag 8) or the cancel byte (0xddfc9c) forces 0 unless
-// the spawn may fly anyway (its virtual +0xdc).
+// the spawn may fly anyway (its virtual +0xdc). A non-ground spawn mode or
+// explicit server appearance takes precedence for the controlled player.
 FlyMode levitation_mode(FlyMode current, bool spa57_value0, bool spa57_value1, std::optional<FlyMode> rider_mode,
-                        bool no_levitate_zone, bool may_fly_anyway = false);
+                        bool no_levitate_zone, bool may_fly_anyway = false,
+                        std::optional<FlyMode> server_mode = std::nullopt);
 // The same on the raw mode values (the physics object's +0xc).
 std::int32_t levitation_mode_value(std::int32_t current, bool spa57_value0, bool spa57_value1,
                                    std::optional<std::int32_t> rider_mode, bool no_levitate_zone, bool may_fly_anyway);

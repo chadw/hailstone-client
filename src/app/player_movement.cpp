@@ -704,12 +704,14 @@ PlayerMovement::Frame PlayerMovement::update(const MovementKeys& keys, float yaw
     if (std::uint32_t msg = mech::encumbrance_message(encumbered_shown_, w.carried, w.strength))
         out.messages.push_back(conn.strings().format(msg, {}));
 
-    // Levitation (UpdateLevitationState after each effect cache rebuild):
-    // SpellCache_GetBuffValue(57, 0) gives mode 2, else (57, 1) mode 5.
-    if (eye && cp) body.fly_mode = static_cast<mech::FlyMode>(cp->fly_mode);
-    else body.fly_mode = mech::levitation_mode(body.fly_mode, facts.levitate_mode2 != 0, facts.levitate_mode5 != 0,
-                                          std::nullopt,
-                                          in(kNoLevitateZones, zone));
+    // A non-ground spawn mode or an explicit type-19 update is authoritative. Otherwise derive levitation from the
+    // effect cache, as UpdateLevitationState does after each cache rebuild: SPA 57 value 0 gives mode 2, else value 1
+    // gives mode 5.
+    std::optional<mech::FlyMode> server_fly_mode;
+    if (cp && (eye || cp->fly_mode != 0 || cp->fly_mode_appearance))
+        server_fly_mode = static_cast<mech::FlyMode>(cp->fly_mode);
+    body.fly_mode = mech::levitation_mode(body.fly_mode, facts.levitate_mode2 != 0, facts.levitate_mode5 != 0,
+                                          std::nullopt, in(kNoLevitateZones, zone), false, server_fly_mode);
 
     // ProcessControls and the jump.
     mech::ControlInput ci;

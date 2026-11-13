@@ -235,7 +235,8 @@ std::int32_t levitation_mode_value(std::int32_t current, bool spa57_value0, bool
 }
 
 FlyMode levitation_mode(FlyMode current, bool spa57_value0, bool spa57_value1, std::optional<FlyMode> rider_mode,
-                        bool no_levitate_zone, bool may_fly_anyway) {
+                        bool no_levitate_zone, bool may_fly_anyway, std::optional<FlyMode> server_mode) {
+    if (server_mode) return *server_mode;
     std::optional<std::int32_t> rider;
     if (rider_mode) rider = static_cast<std::int32_t>(*rider_mode);
     return static_cast<FlyMode>(levitation_mode_value(static_cast<std::int32_t>(current), spa57_value0, spa57_value1,

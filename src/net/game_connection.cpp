@@ -2728,7 +2728,10 @@ void GameConnection::handle_combat(Op op, const AppPacket& p) {
                 case 3: s->invis_rank = static_cast<std::int32_t>(a->parameter); break;
                 case 5: s->light_type = static_cast<std::uint8_t>(a->parameter); break;
                 case 18: s->linkdead = a->parameter != 0; break;
-                case 19: s->fly_mode = static_cast<std::uint8_t>(a->parameter); break; // PlayerPhysics_SetFlyMode
+                case 19:
+                    s->fly_mode = static_cast<std::uint8_t>(a->parameter);
+                    if (id == me) s->fly_mode_appearance = true;
+                    break; // PlayerPhysics_SetFlyMode
                 case 20: s->gm = a->parameter != 0; break;
                 case 21:
                     s->anon = static_cast<std::uint8_t>(a->parameter);
