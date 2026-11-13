@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Movement: server flymodes now control the local character, including `#set flymode 1` for free flight; all six gravity behaviors are supported
 - Money picked up onto the cursor (from the inventory, the bank or a trade) now follows the mouse as a coin of its kind with the amount beside it, in both interfaces, as an item on the cursor does. Before, nothing showed that coin was held
 - Merchant, Parcels page (modern interface): clicking a parcel now picks it, and Retrieve takes that parcel. Before, the pick was dropped at once, so Retrieve stayed greyed out. With no parcel picked, Retrieve takes the first one in the list
 - Find: Map > Show path now draws the selected world trail on the initial login, including servers without downloaded asset files; terrain bindings follow zone replacement and asset reloads
