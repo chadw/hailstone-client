@@ -364,7 +364,7 @@ return rw, rh, ry, ow, oh, oy
 
 // The modern UI's grid snapping (ui/modern/lib/snap.lua): a dragged window's near or far edge goes to the nearest
 // grid line, or flush with the screen's edge when that is nearer, in whole pixels.
-TEST_CASE("UI snap: a window lands on the nearest grid line or screen edge") {
+TEST_CASE("UI snap: window positions and resize edges land on the grid") {
     fs::path file = ui_dir() / "modern" / "lib" / "snap.lua";
     if (!fs::exists(file)) return;
     lua_State* L = luaL_newstate();
@@ -405,6 +405,25 @@ TEST_CASE("UI snap: a window lands on the nearest grid line or screen edge") {
     lua_pushnil(L);
     REQUIRE(lua_pcall(L, 4, 1, 0) == LUA_OK);
     CHECK(lua_tonumber(L, -1) == 33.5);
+    auto extent = [&](double origin, double size, double delta, double minSize, double scale, double grid) {
+      lua_getglobal(L, "snap");
+      lua_getfield(L, -1, "Extent");
+      lua_pushnumber(L, origin);
+      lua_pushnumber(L, size);
+      lua_pushnumber(L, delta);
+      lua_pushnumber(L, minSize);
+      lua_pushnumber(L, scale);
+      if (grid > 0) lua_pushnumber(L, grid);
+      else lua_pushnil(L);
+      REQUIRE(lua_pcall(L, 6, 1, 0) == LUA_OK);
+      const double v = lua_tonumber(L, -1);
+      lua_pop(L, 2);
+      return v;
+    };
+    CHECK(extent(103, 50, 4, 20, 1, 10) == 57);          // off-grid origin; far edge 157 -> 160
+    CHECK(extent(103, 50, -45, 20, 1, 10) == 20);        // minimum size wins over the grid
+    CHECK(extent(101, 20, 5, 10, 1.25, 12.5) == 29.2);   // fractional screen grid and scale
+    CHECK(extent(103, 50, 3, 20, 1.25, 0) == 52.4);     // Shift or snap off: raw resize
     lua_close(L);
 }
 

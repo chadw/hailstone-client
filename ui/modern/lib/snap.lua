@@ -6,8 +6,9 @@
 --   local snap = dofile("lib/snap.lua")
 --   local g = snap.Grid()                     -- the grid in screen pixels, or nil (off, or Shift held)
 --   x = snap.Axis(x, w, W, g)                 -- one axis: position, the window's size, the screen's
+--   w = snap.Extent(x, w, dx, minW, s, g)    -- resize the far edge from x by dx screen pixels
 --
--- Axis is pure (tests/lua_scripts_test.cpp runs it without the ui table).
+-- Axis and Extent are pure (tests/lua_scripts_test.cpp runs them without the ui table).
 local snap = {}
 
 snap.DEFAULT_SIZE, snap.MIN_SIZE, snap.MAX_SIZE = 10, 4, 64
@@ -24,6 +25,13 @@ function snap.Axis(raw, size, screen, grid)
     if d < bestD then best, bestD = c, d end
   end
   return math.floor(best + 0.5)
+end
+
+-- A resized far edge snaps in screen space; the window's origin need not be on a grid line.
+function snap.Extent(origin, size, delta, minSize, scale, grid)
+  local extent = math.max(minSize, size + delta / scale)
+  if not grid or grid <= 0 then return extent end
+  return math.max(minSize, (nearest(origin + extent * scale, grid) - origin) / scale)
 end
 
 function snap.On() return ui.GetSetting("hud.snap") == "1" end
