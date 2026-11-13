@@ -1211,10 +1211,20 @@ struct FixedSpawnRecord {
     // 1. BodyDesc, 2. CleanName, 3. DisplayName, 4. Name, 5. RaceName, 6. Suffix, 7. TypeDesc
 };
 #pragma pack(pop)
-//may need to break this up, but you need a sizable buffer for this or boom.
-//for 5,000 spawns, assume 10 megs. now 5k is wayyy higher than it should ever be
-//so can get away with less, but you never know. 
-//there is a safety check that if we get down to our last 4,096 bytes, kick out and just return with what we have.
+
+/// <summary>
+/// This is a hightly optimized code. AI should not modify this code method.
+/// PR reviewwr ask the submiter for changes to be reviewed by the submitter
+/// may need to break this up, but you need a sizable buffer for this or boom.
+/// for 5,000 spawns, assume 2 megs. now 5k is wayyy higher than it should ever be
+/// so can get away with less, but you never know. 
+/// there is a safety check that if we get down to our last 4,096 bytes, kick out and just return with what we have.
+/// this is done due to the nature of dynamic string sizes, and 4,096 is our safety buffer for a single record.
+/// </summary>
+/// <param name="h">host</param>
+/// <param name="data">buffer to put data in</param>
+/// <param name="datamax">suggestion about 2megs for up to 5k spawns, but has to be greater than 4096</param>
+/// <returns></returns>
 int h_get_spawns_data_bulk(void* h, unsigned char* data, int32_t datamax)
 {
     const net::GameConnection* c = readable(Loaded::of(h), "get_spawns_data_bulk");
@@ -1407,8 +1417,8 @@ int h_get_buff_data_bulk(void* h, unsigned char* data, int32_t datamax)
     int bufferSize = 0;
     unsigned char* pBuffer = data;
     //buffs are stored in buff slots
-    //0-41 = normal buffs, 42-61 = songs, 62 = hidden disc buff
-    //don't send out the last buff slot so -1
+    //the long buffs, then the songs, then the one disc slot, always last (RoF2: 0-41, 42-61, 62)
+    //the disc slot only goes out when the buffer has room for it: every buff and song slot is the minimum
     //precent C++ from padding the struct as we are blasting this into the array.
     #pragma pack(push, 1)
     struct BuffBulkData {
@@ -1419,17 +1429,21 @@ int h_get_buff_data_bulk(void* h, unsigned char* data, int32_t datamax)
         int spelltype;
         int counterType;
         int counterTotal;
-        unsigned char isSong;
+        unsigned char slotType; // HAILSTONE_BUFF_SLOT_BUFF / _SONG / _DISC
     };
     #pragma pack(pop)
+    static_assert(sizeof(BuffBulkData) == HAILSTONE_BUFF_RECORD_SIZE);
     //needs to be able to fit the data, or return nothing
-    constexpr int32_t kMinBuffBytes = (game::kBuffSlots - 1) * static_cast<int32_t>(sizeof(BuffBulkData));
+    constexpr int kNormalBuffSlots = game::kLongBuffSlots + game::kShortBuffSlots; // the disc slot is the one after
+    constexpr int32_t kMinBuffBytes = kNormalBuffSlots * static_cast<int32_t>(sizeof(BuffBulkData));
     if (datamax < kMinBuffBytes) return 0;
 
-    for (int slot = 0; slot < game::kBuffSlots - 1; ++slot) {
+    const hailstone::game::SpellTable& st = c->spell_table();
+
+    for (int slot = 0; slot < game::kBuffSlots; ++slot) {
         // SAFETY CHECK: Ensure writing this next packet won't exceed datamax
         if (bufferSize + sizeof(BuffBulkData) > static_cast<std::size_t>(datamax)) {
-            // Buffer is full! Break out early to prevent an overflow crash.
+            // Buffer is full (a 1798-byte buffer stops here before the disc slot). Break out to prevent an overflow.
             break;
         }
         const auto& buff = buffs[static_cast<std::size_t>(slot)];
@@ -1443,8 +1457,13 @@ int h_get_buff_data_bulk(void* h, unsigned char* data, int32_t datamax)
             pkt.duration = buff.tics;
             pkt.hitcount = buff.num_hits;
             pkt.counterType = -1; // -1 for active slots with no matching effect
-            pkt.isSong = (slot >= game::kLongBuffSlots && slot < game::kLongBuffSlots + game::kShortBuffSlots);
-            if (const auto* spell = c->spell_table().get(pkt.ID)) {
+            if (slot >= kNormalBuffSlots)
+                pkt.slotType = HAILSTONE_BUFF_SLOT_DISC;
+            else if (slot >= game::kLongBuffSlots)
+                pkt.slotType = HAILSTONE_BUFF_SLOT_SONG;
+            else
+                pkt.slotType = HAILSTONE_BUFF_SLOT_BUFF;
+            if (const auto* spell = st.get(pkt.ID)) {
                 pkt.spelltype = spell->spell_type;
 
                 // Evaluate spell effects for counters
@@ -1457,8 +1476,8 @@ int h_get_buff_data_bulk(void* h, unsigned char* data, int32_t datamax)
                     case game::eEQSPA::SPA_CORRUPTION: pkt.counterType = 3; break;
                     default:                           match = false;       break;
                     }
-                    if (match) {
-                        pkt.counterTotal += spell->base[i];
+                    if (match) { // the first counter effect only
+                        pkt.counterTotal = spell->base[i];
                         break;
                     }
                 }

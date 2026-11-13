@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <format>
+#include <string_view>
 
 #include "core/log.h"
 #include "game/option_commands.h"
@@ -19,6 +20,12 @@ const AchievementDefinition* own_definition(const game::Achievements& model, std
 std::string chat_tag(const AchievementLink& link, std::string_view name) {
     return std::string("\x12") + '3' + link.metadata + '\'' + std::string(name) + '\x12';
 }
+} // namespace
+
+namespace {
+constexpr std::string_view kCompareWaiting = "Waiting for the selected player's achievement comparison.";
+constexpr std::string_view kCompareTimedOut =
+    "The comparison timed out. Compare again once the server's late reply arrives, or after zoning.";
 } // namespace
 
 void GameConnection::reset_achievements() {
@@ -86,7 +93,7 @@ bool GameConnection::compare_achievements() {
     };
     if (send_zone(encode_achievement_compare(target.first, world_.player_id), true, current)) {
         achievement_compare_target_ = target;
-        achievement_message_ = "Waiting for the selected player's achievement comparison.";
+        achievement_message_ = std::string(kCompareWaiting);
         return true;
     }
     achievements_.cancel_unsent_compare(*request);
@@ -166,7 +173,12 @@ void GameConnection::update_achievements() {
     achievements_.update(now);
     if (achievement_compare_target_ && *achievement_compare_target_ != achievement_target()) {
         achievements_.retire_compare(); achievement_compare_target_.reset();
+        if (achievement_message_ == kCompareWaiting) achievement_message_.clear();
     }
+    // A comparison has no request nonce, so a timed-out one stays reserved until a late reply drains it
+    // (Achievements::update); say so rather than keep waiting.
+    if (achievements_.compare_retired() && achievement_message_ == kCompareWaiting)
+        achievement_message_ = std::string(kCompareTimedOut);
     if (achievement_link_target_) {
         const auto at = world_.spawns.find(achievement_link_target_->first);
         if (at == world_.spawns.end() || at->second.incarnation != achievement_link_target_->second) {
@@ -215,6 +227,10 @@ bool GameConnection::handle_achievements(const AppPacket& p) {
         if (active) if (auto decoded = decode_achievement_snapshot(p, achievements_.comparison_reply_catalog())) {
             const auto target = achievement_target();
             achievements_.receive_comparison(std::move(*decoded), target.first, target.second); valid = true;
+            // Shown, or a late reply drained: either way nothing is waiting any more.
+            if (!achievements_.compare_pending() &&
+                (achievement_message_ == kCompareWaiting || achievement_message_ == kCompareTimedOut))
+                achievement_message_.clear();
         }
         break;
     case kOpAchievementInspect:

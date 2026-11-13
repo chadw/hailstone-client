@@ -924,7 +924,7 @@ plus `cooldown` (0..1 of the recast left) on the slot readers while a recast run
 | PressButtonFrom | (window, child [, row]) → ok | Run the hotbutton a drag would make (a pad's "use"). Not for hot bars | actions |
 | HoldingButton | () → bool | A hotbutton is on the cursor | — |
 | ClearCursorButton | () → — | Drop the cursor's hotbutton | actions |
-| CursorAttachment | () → {icon, iconRect, rect, quantity, font, spell, …} \| nil | What the mouse carries. Images are {texture,u0,v0,u1,v1}, rects are {x,y,w,h} | — |
+| CursorAttachment | () → {icon, iconRect, rect, quantity, font, spell, coin, …} \| nil | What the mouse carries. Images are {texture,u0,v0,u1,v1}, rects are {x,y,w,h}. Money on the cursor has `coin` (0 pp .. 3 cp) and its count in `quantity`, and no `icon` | — |
 
 #### Items, bags, item jobs, item preview (lua_eq.cpp)
 
@@ -1368,7 +1368,7 @@ or -1 and say so in the chat window. Only call these on the client's thread, fro
 | `close_spell_book`, `clear_spell_recovery`, `set_window_pet(id)`, `inspect_item(id, augments)` | `actions` | |
 | `max_camera_distance`, `set_max_camera_distance(d)` | `actions` | |
 | `open_bank(banker)` | `actions` | the bank window at a spawn (0 the player), without a banker's checks. Added later in ABI 3: test `HAILSTONE_HOST_HAS(host, open_bank)` first |
-| `get_buff_data_bulk(out, size)`, `get_pet_buff_data_bulk(out, size)`, `get_spawns_data_bulk(out, size)` | `read` | every buff slot of the player (`size` at least 1798, or 0 comes back), the pet window's buffs, or every spawn in the zone (`size` at least 4096, or 0 comes back; 4112 for any record), as packed records in the machine's byte order (layout in docs/plugins.md "Buff and spawn records"); returns the bytes written. Added later in ABI 3: test `HAILSTONE_HOST_HAS(host, <field>)` first |
+| `get_buff_data_bulk(out, size)`, `get_pet_buff_data_bulk(out, size)`, `get_spawns_data_bulk(out, size)` | `read` | every buff slot of the player (`size` must hold every buff and song slot, RoF2's 1798 bytes, or 0 comes back; one record more, 1827, brings the discipline slot, the last), the pet window's buffs, or every spawn in the zone (`size` at least 4096, or 0 comes back; 4112 for any record), as packed records in the machine's byte order (layout in docs/plugins.md "Buff and spawn records"); returns the bytes written. Added later in ABI 3: test `HAILSTONE_HOST_HAS(host, <field>)` first |
 | `add_ui_function(name, fn, user)`, `remove_ui_function` | `ui` | a function the plugin's windows call as `eq.Plugin("<name>").<name>(...)` |
 | `arg_count`, `arg(i, out)`, `arg_field(i, key, out)` | | a UI function's arguments |
 | `out_value`, `out_begin_array`, `out_begin_table`, `out_key`, `out_end` | | a UI function's result |

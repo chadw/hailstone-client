@@ -591,10 +591,13 @@ The client copies its own packed structs into the buffer, so the fields are in t
 (little-endian on every platform Hailstone runs on) and unaligned: read them with `ByteReader` or `memcpy`, never by
 casting a struct onto the buffer. Without `read` they return 0 and say so in the chat window.
 
-- `get_buff_data_bulk`: needs `out_size` of at least 1798 bytes (62 x `HAILSTONE_BUFF_RECORD_SIZE`) and returns 0
-  below that, so a plugin gets all the slots or nothing. One record of
-  `HAILSTONE_BUFF_RECORD_SIZE` (29) bytes per buff slot, slot 0 first, for slots 0 to 61 (the songs from slot 42; the
-  last slot, the discipline slot, is not included), so 1798 bytes for RoF2's 63 slots.
+- `get_buff_data_bulk`: one record of `HAILSTONE_BUFF_RECORD_SIZE` (29) bytes per buff slot, slot 0 first, in the
+  client's order: the long buff slots, then the song slots, then the one discipline slot, always last. RoF2 has 42
+  long buff slots (0 to 41), 20 song slots (42 to 61) and the discipline slot (62), 63 in all. `out_size` must hold
+  every buff and song slot, 1798 bytes (62 records), or 0 comes back, so a plugin gets all of them or nothing; the
+  discipline slot comes too when it holds one record more, 1827 bytes (63). The counts are the client's, not the
+  SDK's: tell a record's kind by its last byte, not by its position, and pass a buffer with room to spare (4096
+  bytes holds 141 records).
 
   | Offset | Type | Field |
   |---|---|---|
@@ -605,7 +608,7 @@ casting a struct onto the buffer. Without `read` they return 0 and say so in the
   | 16 | i32 | the spell's type: 0 detrimental, 1 beneficial, 2 beneficial group-only (0 for a spell not in spells_us.txt) |
   | 20 | i32 | counter type of the spell's first counter effect: -1 none, 0 disease, 1 poison, 2 curse, 3 corruption. An empty slot also has 0 here, so test the spell id before reading it as disease |
   | 24 | i32 | that effect's base: the counters the buff starts with (MacroQuest's `Spell.CounterNumber`); 0 with no counter effect |
-  | 28 | u8 | 1 for a song slot (42 to 61) |
+  | 28 | u8 | the slot's window: 0 buff (`HAILSTONE_BUFF_SLOT_BUFF`, RoF2's slots 0 to 41), 1 song (`HAILSTONE_BUFF_SLOT_SONG`, 42 to 61), 2 discipline (`HAILSTONE_BUFF_SLOT_DISC`, the last slot, 62); 0 in an empty slot. Taken from the slot, not the spell |
 
   The counters left (the slot's data from the server) are not included.
 

@@ -17,9 +17,9 @@ Security problems go through [SECURITY.md](SECURITY.md), not a public issue.
 
 - Read [docs/plan.md](docs/plan.md) (goals and architecture), [docs/code-overview.md](docs/code-overview.md) (where everything is), [docs/todo.md](docs/todo.md) (what is open) and [docs/unknowns.md](docs/unknowns.md) (what is guessed). Pick work from the to-do list, or open an issue first for anything large, so effort is not duplicated.
 - The rules that shape every change:
-  - **Faithful mechanics, modern graphics.** Game rules follow the original RoF2 client; rendering does not have to look like it.
+  - **RoF2 is the baseline, not the ceiling; modern graphics.** Game rules start from the original RoF2 client. The client may go past RoF2's hard limits where a server offers more, as long as it still works the RoF2 way with a server that does not; mark such an extension in the code and docs. Rendering does not have to look like the original.
   - **No guessing.** Behaviour you cannot confirm is recorded in `docs/unknowns.md` rather than invented.
-  - **Stock EQEmu first.** The client must work against an unmodified EQEmu RoF2 server. Features for a particular server switch on only when that server announces them.
+  - **Stock EQEmu first.** The client must work against an unmodified EQEmu RoF2 server. Features for a particular server switch on only when that server announces them; support for one server's own protocol is a plugin (docs/plugins.md).
 
 ## Building and testing
 
@@ -40,7 +40,7 @@ build/hailstone/hailstone --validation
 ## Code guidelines
 
 - C++20. Match the style of the surrounding code: naming, comment density and error handling. Comments say why, not what.
-- Read and write files and packets only through `core/byte_io.h`. Never cast a struct onto a buffer. (The plugin host's bulk reads, `get_*_data_bulk`, are the exception: they copy packed structs into an in-process plugin's buffer, as docs/plugins.md describes.)
+- Read and write files and packets only through `core/byte_io.h`. Never cast a struct onto a buffer. (The plugin area, `src/plugin/`, is the exception: data it hands an in-process plugin, such as the bulk reads `get_*_data_bulk`, may be a `#pragma pack` struct copied into the plugin's buffer with `memcpy`, as docs/plugins.md describes.)
 - OS calls go only in `src/platform/`. Layers depend downward only (`app` -> `game` / `ui` / `render` / `audio` -> `assets` / `net` / `web` -> `core` / `platform`).
 - Make no assumptions about the size of `long` or `wchar_t`, path separators or byte order.
 - Add or update tests for new behavior, and register new source and test files in `CMakeLists.txt`.

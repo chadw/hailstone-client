@@ -167,6 +167,16 @@ end)
 local function image(t, r, a)
   if t and r and type(t[1]) == "userdata" then ui.DrawImage(t[1], r[1], r[2], r[1] + r[3], r[2] + r[4], t[2], t[3], t[4], t[5], 1, 1, 1, a or 1) end
 end
+-- money on the cursor (a.coin 0 platinum .. 3 copper): a coin in its colour with its letter, centred in x0, y0, sz
+local COINS = { [0] = { "p", "Platinum", C.platinum }, { "g", "Gold", C.gold }, { "s", "Silver", C.silver }, { "c", "Copper", C.copper } }
+local function coin(c, x0, y0, sz)
+  local cx, cy, r = x0 + sz / 2, y0 + sz / 2, sz * 0.32
+  local col = c[3]
+  ui.DrawCircleFilled(cx, cy, r, col[1], col[2], col[3], 1)
+  ui.DrawCircle(cx, cy, r, 0, 0, 0, 0.45, 1.5)
+  local tw, th = ui.CalcTextSize(c[1])
+  ui.DrawText(cx - tw / 2, cy - th / 2, 0.08, 0.08, 0.1, 0.85, c[1])
+end
 
 ui.window("Cursor Item", function()
   if not eq.InGame() then return end
@@ -182,15 +192,19 @@ ui.window("Cursor Item", function()
       local s = h - T.px(24)
       T.rect(x0 + T.px(12), y0 + T.px(12), x0 + T.px(12) + s, y0 + T.px(12) + s, C.raised, 1, T.px(10))
       local icon = a.icon or a.gem or a.bg
+      local held = a.coin and COINS[a.coin]
       if icon and type(icon[1]) == "userdata" then
         T.icon(icon[1], icon[2], icon[3], icon[4], icon[5], x0 + T.px(16), y0 + T.px(16), x0 + T.px(8) + s, y0 + T.px(8) + s)
+      elseif held then
+        coin(held, x0 + T.px(12), y0 + T.px(12), s)
       end
       T.font(17)
       T.draw(x0 + s + T.px(30), y0 + T.px(14), "HOLDING", C.dim)
       T.unfont()
       T.font(23)
       local item = not a.button and eq.Item(eq.CursorSlot or 33) or nil
-      local what = (item and item.name) or ((a.text and a.text ~= "") and a.text) or (a.button and "A hot button" or "Money or a spell")
+      local what = (item and item.name) or (held and held[2]) or ((a.text and a.text ~= "") and a.text) or (a.spell)
+        or (a.button and "A hot button" or "A spell")
       if a.quantity then what = what .. "  x" .. a.quantity end
       T.draw(x0 + s + T.px(30), y0 + T.px(42), T.fit(what, w - s - T.px(50)), C.text)
       T.unfont()
@@ -211,6 +225,7 @@ ui.window("Cursor Item", function()
     image(a.bg, a.bgRect)
     image(a.icon, a.iconRect)
     image(a.gem, a.gemRect)
+    if a.coin and COINS[a.coin] then coin(COINS[a.coin], x0, y0, sz) end
     ui.PushFont(math.max(1, math.min(6, a.font or 2)))
     if a.text and a.text ~= "" and a.bgRect and not a.icon then
       local tw, th = ui.CalcTextSize(a.text)

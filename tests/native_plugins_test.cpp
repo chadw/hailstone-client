@@ -704,18 +704,25 @@ TEST_CASE("native plugins: get_buff_data_bulk and get_pet_buff_data_bulk, laid o
     sp.buffs[5].num_hits = 2;
     sp.buffs[42].spell = 3373;
     sp.buffs[42].tics = 3;
+    sp.buffs[62].spell = 99999; // the discipline slot; a spell not in the table (type 0, no counter)
+    sp.buffs[62].tics = 9;
     h.run("/probebuffs");
     CHECK(h.printed_line("[Probe] buff 0: 11 0 10 0 1 -1 0 0"));
     CHECK(h.printed_line("[Probe] buff 3: 717 0 2 0 1 -1 0 0"));
     CHECK(h.printed_line("[Probe] buff 5: 3004 10 7 2 0 0 4 0")); // disease, starts at 4
-    CHECK(h.printed_line("[Probe] buff 42: 3373 0 3 0 0 -1 0 1"));
-    CHECK(h.printed_line("[Probe] buffs 1798 bytes, 58 empty")); // slots 0-61 of 29 bytes; the discipline slot not sent
+    CHECK(h.printed_line("[Probe] buff 42: 3373 0 3 0 0 -1 0 1")); // a song
+    CHECK(h.printed_line("[Probe] buff 62: 99999 0 9 0 0 -1 0 2")); // the disc slot, with room for it
+    CHECK(h.printed_line("[Probe] buffs 1827 bytes, 58 empty")); // slots 0-62 of 29 bytes
     // All the slots or nothing: a buffer smaller than 62 records gets none.
     h.printed.clear();
     h.run("/probebuffs 1797");
     CHECK(h.printed_line("[Probe] buffs 0 bytes, 0 empty"));
+    // 62 records as before: the disc slot only goes out with room for a 63rd.
     h.run("/probebuffs 1798");
     CHECK(h.printed_line("[Probe] buffs 1798 bytes, 58 empty"));
+    h.run("/probebuffs 1826");
+    CHECK_FALSE(h.printed_line("[Probe] buff 62: 99999 0 9 0 0 -1 0 2"));
+    CHECK_FALSE(h.printed_line("[Probe] buffs 1827 bytes, 58 empty"));
 
     // No pet buffs: nothing. Then the pet window's, in the server's order (the slots are not sent).
     h.run("/probepetbuffs");

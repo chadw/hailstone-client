@@ -2258,7 +2258,8 @@ int SetSlider(lua_State* L) {
 }
 
 // a = eq.CursorAttachment()   -- what CCursorAttachment carries on the mouse (an item), nil when nothing:
-// { icon, iconRect, rect, quantity, font, spell (a book spell's name) }; images { texture, u0, v0, u1, v1 }, rects { x, y, w, h } on the screen.
+// { icon, iconRect, rect, quantity, font, spell (a book spell's name), coin (money: 0 platinum .. 3 copper, its
+// count in quantity, no icon: the pack draws the coin) }; images { texture, u0, v0, u1, v1 }, rects { x, y, w, h } on the screen.
 // The window (EQUI_CursorAttachment.xml, 50 x 50) sits at the mouse with the icon (CA_Anim2) at 5, 5, 40 x 40;
 // DrawQuantity writes a stack's count in a dark box at its bottom right.
 int CursorAttachment(lua_State* L) {
@@ -2275,7 +2276,16 @@ int CursorAttachment(lua_State* L) {
         spell = id == game::kNoSpell ? nullptr : m.host.conn->spell_table().get(id);
         if (spell && m.host.textures) icon = m.host.textures->spell_icon(spell->spell_icon);
     }
-    if (!held && !button && !spell) {
+    // Money (CCursorAttachment type 3): the coin MoveMoney left on the cursor, the first held counter from platinum
+    // (CDisplay +0x11), and its count (+0x244), drawn as a stack's quantity is.
+    int coin = -1;
+    std::uint32_t coin_count = 0;
+    if (!held && !button && !spell && m.host.in_game && m.host.conn) {
+        const auto& cc = m.host.conn->cursor_coins(); // by wire type, 0 copper .. 3 platinum
+        for (int t = 3; t >= 0 && coin < 0; --t)
+            if (cc[static_cast<std::size_t>(t)]) coin = 3 - t, coin_count = cc[static_cast<std::size_t>(t)];
+    }
+    if (!held && !button && !spell && coin < 0) {
         lua_pushnil(L);
         return 1;
     }
@@ -2314,6 +2324,14 @@ int CursorAttachment(lua_State* L) {
     if (held && held->stackable() && held->stack_count >= 1) {
         lua_pushinteger(L, held->stack_count);
         lua_setfield(L, -2, "quantity");
+    }
+    if (coin >= 0) {
+        lua_pushinteger(L, coin);
+        lua_setfield(L, -2, "coin");
+        lua_pushinteger(L, static_cast<lua_Integer>(coin_count));
+        lua_setfield(L, -2, "quantity");
+        rect(mouse.x + 5, mouse.y + 5, 40, 40);
+        lua_setfield(L, -2, "iconRect");
     }
     lua_pushinteger(L, 2);
     lua_setfield(L, -2, "font");

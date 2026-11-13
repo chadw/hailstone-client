@@ -591,6 +591,12 @@ typedef struct PluginHostApi {
     int32_t (*get_spawns_data_bulk)(void* host, unsigned char* out, int32_t out_size);
 } PluginHostApi;
 #define HAILSTONE_BUFF_RECORD_SIZE 29
+/* get_buff_data_bulk's last byte: the window the slot belongs to (0 also for an empty slot). */
+/* The records run long buffs, then songs, then the one discipline slot (RoF2: 0-41, 42-61, 62); the counts are the
+ * client's, so read this byte rather than a record's position. */
+#define HAILSTONE_BUFF_SLOT_BUFF 0 /* a long buff slot */
+#define HAILSTONE_BUFF_SLOT_SONG 1 /* a song slot; was "1 for a song", so old checks still hold */
+#define HAILSTONE_BUFF_SLOT_DISC 2 /* the discipline slot, the last, sent only with room for one record more */
 #define HAILSTONE_PET_BUFF_RECORD_SIZE 12
 /* Whether this client's host table has `field` (one added after the plugin's ABI) and it is set. */
 #define HAILSTONE_HOST_HAS(h, field)                                                                                   \

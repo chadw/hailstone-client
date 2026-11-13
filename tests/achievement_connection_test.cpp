@@ -113,8 +113,10 @@ TEST_CASE("achievement connection: comparison is target incarnation scoped and l
     CHECK(request.le<std::uint32_t>() == 77); CHECK(request.le<std::uint32_t>() == rig.conn.world().player_id);
     CHECK(request.empty());
     CHECK_FALSE(rig.conn.compare_achievements());
+    CHECK(rig.conn.achievement_message() == "Waiting for the selected player's achievement comparison.");
     rig.conn.receive_zone_packet_for_test(fixture::comparison());
     REQUIRE(rig.conn.achievements().comparison().size() == 2);
+    CHECK(rig.conn.achievement_message().empty()); // the reply shown: no longer waiting
     CHECK(rig.conn.achievements().comparison_name() == "Peer");
     CHECK(rig.conn.achievements().comparison()[1].status == AchievementStatus::Completed);
     CHECK(rig.conn.achievements().states()[1]->status == own_status);
@@ -136,9 +138,11 @@ TEST_CASE("achievement connection: comparison is target incarnation scoped and l
     REQUIRE(rig.until([&] { return requests(rig, 0x1665) == 3; }));
     clock.advance(std::chrono::milliseconds(game::Achievements::kRequestTimeoutMs)); rig.step();
     CHECK(rig.conn.achievements().compare_pending()); // no invented wire nonce or timeout reuse
+    CHECK(rig.conn.achievement_message().starts_with("The comparison timed out."));
     CHECK_FALSE(rig.conn.compare_achievements());
     rig.conn.receive_zone_packet_for_test(fixture::comparison());
     CHECK_FALSE(rig.conn.achievements().compare_pending());
+    CHECK(rig.conn.achievement_message().empty()); // the late reply drained
     CHECK(rig.conn.achievements().comparison().empty());
     CHECK(rig.conn.achievements().states()[1]->status == own_status);
 }

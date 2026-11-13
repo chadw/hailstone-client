@@ -1,9 +1,11 @@
--- Cursor: what the game carries on the mouse (an item, a spell from the book, a hot button being dragged;
+-- Cursor: what the game carries on the mouse (an item, a spell from the book, a hot button being dragged, money;
 -- eq.CursorAttachment) drawn above every window in this UI's look: the icon in a rounded well, a hot button's label
--- on its face (wrapped, as on the action bars), and a stack's size in a small pill at the bottom right. Places and
--- sizes are the game's attachment's (the icon at the mouse).
+-- on its face (wrapped, as on the action bars), money as a coin in its colour with its letter, and a stack's size
+-- or the coin's count in a small pill at the bottom right. Places and sizes are the game's attachment's (the icon
+-- at the mouse).
 local T = dofile("lib/theme.lua")
 local C = T.color
+local COINS = { [0] = { "p", C.platinum }, { "g", C.gold }, { "s", C.silver }, { "c", C.copper } }
 
 local function wrap(text, width, font)
   local lines, line = {}, ""
@@ -40,6 +42,15 @@ ui.window("Cursor Item", function()
       local n = math.min(#lines, 3)
       local ty = y0 + (sz - n * lh) / 2
       for k = 1, n do T.Text(x0 + sz / 2, ty + (k - 1) * lh, lines[k], C.text, T.font.tiny, "center") end
+    end
+    local coin = a.coin and COINS[a.coin]
+    if coin then
+      local cx, cy, r = x0 + sz / 2, y0 + sz / 2, sz * 0.32
+      local col = coin[2]
+      ui.DrawCircleFilled(cx, cy, r, col[1], col[2], col[3], 1)
+      ui.DrawCircle(cx, cy, r, 0, 0, 0, 0.45, 1.5)
+      ui.DrawCircle(cx, cy, r * 0.72, 0, 0, 0, 0.18, 1)
+      T.Text(cx, cy - select(2, T.TextSize("Ag", T.font.small)) / 2, coin[1], { 0.08, 0.08, 0.1, 0.85 }, T.font.small, "center")
     end
     if a.quantity then
       local text = T.Thousands(a.quantity)

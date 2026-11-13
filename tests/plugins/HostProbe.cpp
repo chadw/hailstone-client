@@ -87,14 +87,14 @@ void probe_buffs(void*, const char* args) {
         const auto spell = rd.le<std::int32_t>(), caster = rd.le<std::int32_t>(), tics = rd.le<std::int32_t>(),
             hits = rd.le<std::int32_t>(), type = rd.le<std::int32_t>(), counter = rd.le<std::int32_t>(),
             base = rd.le<std::int32_t>();
-        const auto song = rd.le<std::uint8_t>();
+        const auto kind = rd.le<std::uint8_t>(); // HAILSTONE_BUFF_SLOT_*
         if (spell == 0) { // an empty slot: every field 0, including the counter type
             ++empty;
             continue;
         }
         WriteChatf("[Probe] buff %d: %d %d %d %d %d %d %d %u", slot, static_cast<int>(spell),
             static_cast<int>(caster), static_cast<int>(tics), static_cast<int>(hits), static_cast<int>(type),
-            static_cast<int>(counter), static_cast<int>(base), static_cast<unsigned>(song));
+            static_cast<int>(counter), static_cast<int>(base), static_cast<unsigned>(kind));
     }
     WriteChatf("[Probe] buffs %d bytes, %d empty", static_cast<int>(r), empty);
 }

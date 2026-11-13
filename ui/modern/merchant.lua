@@ -218,8 +218,8 @@ local function purchasePage(s, h, btnH)
   consideredH = bottom - top
 end
 
--- The parcels waiting here (EQEmu's: eq.Parcels): a row picks one for Retrieve; Claim all takes every one, one after
--- another (Hailstone). Above the game's own Send fields.
+-- The parcels waiting here (EQEmu's: eq.Parcels): a row picks one for Retrieve, which takes the first when none is
+-- picked; Claim all takes every one, one after another (Hailstone). Above the game's own Send fields.
 local pickedParcel = nil
 local function parcels(s, btnH)
   local list, claiming, busy = eq.Parcels()
@@ -256,7 +256,7 @@ local function parcels(s, btnH)
         (p.sent > 0 and ("  \xC2\xB7  " .. os.date("%b %d", p.sent)) or "")
       T.Text(nx, y + 4 * s + th, T.Fit(from, cw - isz - 24 * s, T.font.tiny), C.faint, T.font.tiny)
       if hov and p.note ~= "" then ui.SetTooltip(p.note) end
-      if hit then pickedParcel = p.slot end
+      if hit then pickedParcel, found = p.slot, true end
     end
     if not found then pickedParcel = nil end
     ui.Dummy(cw, #list * rh)
@@ -266,9 +266,11 @@ local function parcels(s, btnH)
   local w = ui.GetContentRegionAvail()
   local bw = (w - 8 * s) / 2
   local x, y = ui.GetCursorScreenPos()
+  local take = pickedParcel or (list[1] and list[1].slot)
   if T.Button("##retrieve", x, y, x + bw, y + btnH, s, "Retrieve",
-      { enabled = pickedParcel ~= nil and not busy, tooltip = "Take the parcel picked above" }) then
-    eq.RetrieveParcel(pickedParcel)
+      { enabled = take ~= nil and not busy and claiming == 0,
+        tooltip = pickedParcel and "Take the parcel picked above" or "Take the first parcel (or click one above)" }) then
+    eq.RetrieveParcel(take)
   end
   local label = claiming > 0 and string.format("Claiming... %d left", claiming)
     or (#list > 0 and ("Claim all (" .. #list .. ")") or "Claim all")

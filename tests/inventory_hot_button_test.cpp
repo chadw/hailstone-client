@@ -258,3 +258,44 @@ TEST_CASE("cursor attachment: a single stackable item has a quantity of 1, an it
     lua_close(L);
     ImGui::DestroyContext(ctx);
 }
+
+TEST_CASE("cursor attachment: coin on the cursor is reported with its type and count") {
+    ImGuiContext* ctx = ImGui::CreateContext();
+    Rig rig(MockConfig::standard());
+    auto& conn = rig.conn;
+    REQUIRE(rig.to_zone());
+
+    app::EqHost host;
+    host.in_game = host.ui_ready = true;
+    host.conn = &conn;
+    app::EqApi api(host);
+    lua_State* L = luaL_newstate();
+    luaL_openlibs(L);
+    lua_newtable(L);
+    api.register_functions(L);
+    lua_setglobal(L, "eq");
+
+    for (int t = 0; t < 4; ++t)
+        if (conn.cursor_coins()[static_cast<std::size_t>(3 - t)]) conn.inventory_money_button(t, -1, nullptr);
+    REQUIRE(conn.cursor_coins() == std::array<std::uint32_t, 4>{});
+    CHECK(run(L, "return eq.CursorAttachment()") == "nil");
+
+    // 5 of the first coin the purse has (0 platinum .. 3 copper) onto the cursor
+    int taken = -1;
+    for (int t = 0; t < 4 && taken < 0; ++t) {
+        conn.inventory_money_button(t, 5, nullptr);
+        if (conn.cursor_coins()[static_cast<std::size_t>(3 - t)] == 5) taken = t;
+    }
+    REQUIRE(taken >= 0);
+    CHECK(run(L, "return eq.CursorAttachment().coin") == std::to_string(taken));
+    CHECK(run(L, "return eq.CursorAttachment().quantity") == "5");
+    CHECK(run(L, "return eq.CursorAttachment().icon") == "nil");
+    CHECK(run(L, "return eq.CursorAttachment().iconRect ~= nil") == "true");
+
+    // back into the purse: nothing on the cursor
+    conn.inventory_money_button(taken, -1, nullptr);
+    CHECK(run(L, "return eq.CursorAttachment()") == "nil");
+
+    lua_close(L);
+    ImGui::DestroyContext(ctx);
+}
