@@ -22,6 +22,7 @@ constexpr int kMaxItemDepth = 4;          // a bag's content is depth 1; an item
                                           // too, each with its socket as the index (child i = socket i)
 constexpr std::uint32_t kMaxContents = kMaxBagContents;
 constexpr std::uint32_t kMaxInventoryItems = 4096;
+enum class ItemTailFormat { Fixed, Housing };
 // Fewer bytes than any serialized item takes (an empty item is several hundred: its fixed fields and the empty
 // strings' terminators; item_packets_test checks this stays below it). The vectors reserve no more entries than the
 // bytes left could hold, so a few-byte packet that claims thousands of items does not allocate megabytes first.
@@ -67,7 +68,7 @@ void write_effect(ByteWriter& w, const ItemEffect& e) {
     put(w, e.trailer);
 }
 
-Item read_item_at(ByteReader& r, int depth) {
+Item read_item_at(ByteReader& r, int depth, ItemTailFormat tail_format) {
     if (depth > kMaxItemDepth) throw std::out_of_range("item nesting too deep");
     Item it;
     // ItemSerializationHeader
@@ -246,26 +247,62 @@ Item read_item_at(ByteReader& r, int depth) {
     get(r, it.unknown20);
     get(r, it.unknown21);
     get(r, it.heirloom);
-    get(r, it.placeable);
-    for (auto& v : it.unknown22) get(r, v);
-    for (auto& v : it.unknown23_25) get(r, v);
-    get(r, it.unknown26);
-    get(r, it.unknown27);
-    get(r, it.unknown_rof_6);
-    get(r, it.unknown28);
-    get(r, it.unknown29);
-    get(r, it.unknown30);
-    get(r, it.unknown31);
-    get(r, it.unknown32);
-    get(r, it.unknown33);
-    for (auto& v : it.unknown34_37) get(r, v);
-    get(r, it.no_zone);
-    for (auto& v : it.unknown_rof_7) get(r, v);
-    get(r, it.no_ground);
-    for (auto& v : it.unknown_rof_8) get(r, v);
-    get(r, it.unknown37a);
-    get(r, it.unknown38);
-    get(r, it.unknown39);
+    if (tail_format == ItemTailFormat::Housing) {
+        const std::uint32_t placeable_flags = r.le<std::uint32_t>();
+        it.placeable = static_cast<std::uint8_t>(placeable_flags);
+        for (std::size_t i = 0; i < it.unknown22.size(); ++i)
+            it.unknown22[i] = static_cast<std::uint8_t>(placeable_flags >> (8 * (i + 1)));
+        (void)r.le<std::uint8_t>();
+        (void)r.le<std::uint32_t>();
+        (void)r.le<std::int32_t>();
+        (void)r.f32();
+        (void)r.f32();
+        (void)r.le<std::int32_t>();
+        (void)r.le<std::int32_t>();
+        (void)r.cstring();
+        (void)r.le<std::uint8_t>();
+        get(r, it.unknown30);
+        (void)r.le<std::uint8_t>();
+        (void)r.le<std::uint8_t>();
+        (void)r.le<std::uint32_t>();
+        (void)r.f32();
+        (void)r.f32();
+        (void)r.f32();
+        (void)r.f32();
+        (void)r.cstring();
+        const auto trailer = r.bytes(14);
+        auto byte = [&](std::size_t i) { return std::to_integer<std::uint8_t>(trailer[i]); };
+        it.unknown34_37[3] = (std::uint32_t{byte(0)} << 8) | (std::uint32_t{byte(1)} << 16) |
+                             (std::uint32_t{byte(2)} << 24);
+        it.no_zone = byte(3);
+        for (std::size_t i = 0; i < it.unknown_rof_7.size(); ++i) it.unknown_rof_7[i] = byte(4 + i);
+        it.no_ground = byte(8);
+        for (std::size_t i = 0; i < it.unknown_rof_8.size(); ++i) it.unknown_rof_8[i] = byte(9 + i);
+        it.unknown37a = byte(11);
+        it.unknown38 = byte(12);
+        it.unknown39 = byte(13);
+    } else {
+        get(r, it.placeable);
+        for (auto& v : it.unknown22) get(r, v);
+        for (auto& v : it.unknown23_25) get(r, v);
+        get(r, it.unknown26);
+        get(r, it.unknown27);
+        get(r, it.unknown_rof_6);
+        get(r, it.unknown28);
+        get(r, it.unknown29);
+        get(r, it.unknown30);
+        get(r, it.unknown31);
+        get(r, it.unknown32);
+        get(r, it.unknown33);
+        for (auto& v : it.unknown34_37) get(r, v);
+        get(r, it.no_zone);
+        for (auto& v : it.unknown_rof_7) get(r, v);
+        get(r, it.no_ground);
+        for (auto& v : it.unknown_rof_8) get(r, v);
+        get(r, it.unknown37a);
+        get(r, it.unknown38);
+        get(r, it.unknown39);
+    }
     // Contents.
     std::uint32_t count = r.le<std::uint32_t>();
     if (count > kMaxContents) throw std::out_of_range("too many bag contents");
@@ -274,7 +311,7 @@ Item read_item_at(ByteReader& r, int depth) {
         BagItem b;
         b.index = r.le<std::uint32_t>();
         if (b.index >= kMaxContents) throw std::out_of_range("bag index out of range");
-        b.item = read_item_at(r, depth + 1);
+        b.item = read_item_at(r, depth + 1, tail_format);
         it.contents.push_back(std::move(b));
     }
     return it;
@@ -327,7 +364,7 @@ Item* Item::content(std::uint32_t index) {
     return nullptr;
 }
 
-Item read_item(ByteReader& r) { return read_item_at(r, 0); }
+Item read_item(ByteReader& r) { return read_item_at(r, 0, ItemTailFormat::Fixed); }
 
 void write_item(ByteWriter& w, const Item& it) {
     w.fixed_string(it.serial, 17);
@@ -524,15 +561,19 @@ void write_item(ByteWriter& w, const Item& it) {
 }
 
 std::optional<std::vector<Item>> decode_char_inventory(const AppPacket& p) {
-    return decode_with(p, [](ByteReader& r) -> std::vector<Item> {
-        std::uint32_t count = r.le<std::uint32_t>();
-        if (count > kMaxInventoryItems) throw std::out_of_range("too many items");
-        std::vector<Item> items;
-        items.reserve(reserve_for(count, r, kMinItemBytes));
-        for (std::uint32_t i = 0; i < count; ++i) items.push_back(read_item(r));
-        if (!r.empty()) throw std::out_of_range("trailing bytes after the inventory");
-        return items;
-    });
+    auto decode_format = [&](ItemTailFormat format) {
+        return decode_with(p, [format](ByteReader& r) -> std::vector<Item> {
+            std::uint32_t count = r.le<std::uint32_t>();
+            if (count > kMaxInventoryItems) throw std::out_of_range("too many items");
+            std::vector<Item> items;
+            items.reserve(reserve_for(count, r, kMinItemBytes));
+            for (std::uint32_t i = 0; i < count; ++i) items.push_back(read_item_at(r, 0, format));
+            if (!r.empty()) throw std::out_of_range("trailing bytes after the inventory");
+            return items;
+        });
+    };
+    if (auto items = decode_format(ItemTailFormat::Fixed)) return items;
+    return decode_format(ItemTailFormat::Housing);
 }
 
 AppPacket encode_char_inventory(const std::vector<Item>& items) {
@@ -542,23 +583,44 @@ AppPacket encode_char_inventory(const std::vector<Item>& items) {
     return make_packet(Op::CharInventory, std::move(w));
 }
 
-std::optional<ItemPacket> decode_item_packet(const AppPacket& p) {
-    return decode_with(p, [](ByteReader& r) {
-        ItemPacket v;
-        v.type = r.le<std::uint32_t>();
-        v.item = read_item(r);
-        if (v.type == kItemPacketParcel) {
-            v.parcel_sent_time = r.le<std::uint32_t>();
-            auto n = r.le<std::uint32_t>();
-            auto s = r.bytes(n);
-            v.parcel_from.assign(reinterpret_cast<const char*>(s.data()), s.size());
-            n = r.le<std::uint32_t>();
-            s = r.bytes(n);
-            v.parcel_note.assign(reinterpret_cast<const char*>(s.data()), s.size());
+std::optional<ItemPacket> decode_item_packet(const AppPacket& p, std::string* error) {
+    if (error) error->clear();
+    auto decode_format = [&](ItemTailFormat format, std::string& format_error) -> std::optional<ItemPacket> {
+        ByteReader r(p.data);
+        std::uint32_t type = 0;
+        try {
+            ItemPacket v;
+            v.type = r.le<std::uint32_t>();
+            type = v.type;
+            v.item = read_item_at(r, 0, format);
+            if (v.type == kItemPacketParcel) {
+                v.parcel_sent_time = r.le<std::uint32_t>();
+                auto n = r.le<std::uint32_t>();
+                auto s = r.bytes(n);
+                v.parcel_from.assign(reinterpret_cast<const char*>(s.data()), s.size());
+                n = r.le<std::uint32_t>();
+                s = r.bytes(n);
+                v.parcel_note.assign(reinterpret_cast<const char*>(s.data()), s.size());
+            }
+            if (!r.empty()) {
+                format_error = "type " + std::to_string(type) + " at byte " + std::to_string(r.position()) + ": " +
+                            std::to_string(r.remaining()) + " trailing bytes";
+                return std::nullopt;
+            }
+            return v;
+        } catch (const std::out_of_range& e) {
+            format_error = "type " + std::to_string(type) + " at byte " + std::to_string(r.position()) + ": " + e.what();
+        } catch (const std::length_error& e) {
+            format_error = "type " + std::to_string(type) + " at byte " + std::to_string(r.position()) + ": " + e.what();
         }
-        if (!r.empty()) throw std::out_of_range("trailing bytes after the item");
-        return v;
-    });
+        return std::nullopt;
+    };
+    std::string fixed_error;
+    if (auto item = decode_format(ItemTailFormat::Fixed, fixed_error)) return item;
+    std::string housing_error;
+    if (auto item = decode_format(ItemTailFormat::Housing, housing_error)) return item;
+    if (error) *error = housing_error.empty() ? fixed_error : housing_error;
+    return std::nullopt;
 }
 
 AppPacket encode_item_packet(bool link_response, const ItemPacket& v) {

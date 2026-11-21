@@ -319,10 +319,10 @@ inline constexpr std::uint32_t kMaxBagContents = 1000;
 Item read_item(ByteReader& r);
 void write_item(ByteWriter& w, const Item& item);
 
-// ItemPacketType (eq_packet_structs.h), the u32 before an item in OP_ItemPacket.
 inline constexpr std::uint32_t kItemPacketViewLink = 0x00, kItemPacketMerchant = 0x64, kItemPacketTradeView = 0x65,
                                kItemPacketLoot = 0x66, kItemPacketTrade = 0x67, kItemPacketCharInventory = 0x69,
-                               kItemPacketLimbo = 0x6a, kItemPacketWorldContainer = 0x6b, kItemPacketRecovery = 0x71,
+                               kItemPacketLimbo = 0x6a, kItemPacketWorldContainer = 0x6b, kItemPacketCharmUpdate = 0x6e,
+                               kItemPacketRecovery = 0x71,
                                kItemPacketParcel = 0x73;
 
 // OP_CharInventory (zone → client at zone-in): u32 count, then count items
@@ -340,7 +340,7 @@ struct ItemPacket {
     std::uint32_t parcel_sent_time = 0;
     std::string parcel_from, parcel_note;
 };
-std::optional<ItemPacket> decode_item_packet(const AppPacket& p);
+std::optional<ItemPacket> decode_item_packet(const AppPacket& p, std::string* error = nullptr);
 AppPacket encode_item_packet(bool link_response, const ItemPacket& v); // server direction, for tests
 
 // OP_ItemPreviewRequest (C->S, 80 bytes; Send_OP_ItemPreviewRequest @0x6fff10 / @0x6ffc20): u32 item id, then for

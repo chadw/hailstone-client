@@ -210,9 +210,10 @@ void GameConnection::handle_item(Op op, const AppPacket& p) {
         break;
     case Op::ItemPacket:
     case Op::ItemLinkResponse: {
-        auto ip = decode_item_packet(p);
+        std::string decode_error;
+        auto ip = decode_item_packet(p, &decode_error);
         if (!ip) {
-            log::warn("could not decode {} ({} bytes)", op_name(op), p.data.size());
+            log::warn("could not decode {} ({} bytes): {}", op_name(op), p.data.size(), decode_error);
             break;
         }
         Item& item = ip->item;
